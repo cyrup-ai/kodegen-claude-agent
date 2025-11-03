@@ -68,7 +68,7 @@ kodegen_mcp_schema = { version = "0.1" }
 kodegen_server_http = { version = "0.1" }
 
 # Prompt template system
-kodegen_tools_prompt = { path = "../tools-prompt"  }
+kodegen_tools_prompt = { path = "0.1"  }
 
 # JSON Schema generation
 schemars = "1"
