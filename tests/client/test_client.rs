@@ -2,7 +2,7 @@
 //!
 //! Tests the client creation and basic functionality
 
-use kodegen_tools_claude_agent::{ClaudeAgentOptions, ClaudeSDKClient};
+use kodegen_claude_agent::{ClaudeAgentOptions, ClaudeSDKClient};
 
 #[tokio::test]
 async fn test_client_creation() {

@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// Browser HTTP server configuration
 const HTTP_PORT: u16 = 30440;
 const BINARY_NAME: &str = "kodegen-claude-agent";
-const PACKAGE_NAME: &str = "kodegen_tools_claude_agent";
+const PACKAGE_NAME: &str = "kodegen_claude_agent";
 
 /// HTTP server URL for browser examples
 const HTTP_URL: &str = "http://127.0.0.1:30440/mcp";

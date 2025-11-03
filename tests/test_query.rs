@@ -3,7 +3,7 @@
 //! Tests the simple one-shot query functionality
 
 use futures::StreamExt;
-use kodegen_tools_claude_agent::query;
+use kodegen_claude_agent::query;
 
 #[tokio::test]
 async fn test_simple_query() {

@@ -48,8 +48,8 @@ This project provides both:
 
 ```bash
 # Clone the repository
-git clone https://github.com/cyrup-ai/kodegen-tools-claude-agent.git
-cd kodegen-tools-claude-agent
+git clone https://github.com/cyrup-ai/kodegen-claude-agent.git
+cd kodegen-claude-agent
 
 # Build the project
 cargo build --release
@@ -78,13 +78,13 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-kodegen_tools_claude_agent = "0.1"
+kodegen_claude_agent = "0.1"
 ```
 
 #### Simple Query
 
 ```rust
-use kodegen_tools_claude_agent::query;
+use kodegen_claude_agent::query;
 use futures::StreamExt;
 
 #[tokio::main]
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     while let Some(message) = stream.next().await {
         match message? {
-            kodegen_tools_claude_agent::Message::Assistant { message, .. } => {
+            kodegen_claude_agent::Message::Assistant { message, .. } => {
                 println!("Claude: {:?}", message);
             }
             _ => {}
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #### Interactive Client
 
 ```rust
-use kodegen_tools_claude_agent::{ClaudeSDKClient, ClaudeAgentOptions};
+use kodegen_claude_agent::{ClaudeSDKClient, ClaudeAgentOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #### Agent Session Management
 
 ```rust
-use kodegen_tools_claude_agent::{AgentManager, PromptInput};
+use kodegen_claude_agent::{AgentManager, PromptInput};
 use std::sync::Arc;
 
 #[tokio::main]

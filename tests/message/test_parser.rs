@@ -2,7 +2,7 @@
 //!
 //! Tests the parsing of JSON values into typed Message objects
 
-use kodegen_tools_claude_agent::parse_message;
+use kodegen_claude_agent::parse_message;
 use serde_json::json;
 
 #[test]

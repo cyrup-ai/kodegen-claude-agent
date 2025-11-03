@@ -1,8 +1,8 @@
-use kodegen_tools_claude_agent::control::protocol::{
+use kodegen_claude_agent::control::protocol::{
     ClientCapabilities, ControlMessage, ControlRequest, ControlResponse, InitResponse,
     ProtocolHandler, ServerCapabilities,
 };
-use kodegen_tools_claude_agent::{
+use kodegen_claude_agent::{
     HookEvent, PermissionRequest, PermissionResult, PermissionResultAllow, RequestId, ToolName,
     ToolPermissionContext,
 };

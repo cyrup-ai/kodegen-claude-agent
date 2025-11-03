@@ -1,9 +1,9 @@
 //! Integration tests for the control protocol handler
 
-use kodegen_tools_claude_agent::control::{
+use kodegen_claude_agent::control::{
     ControlMessage, ControlRequest, ControlResponse, InitResponse, ProtocolHandler,
 };
-use kodegen_tools_claude_agent::{
+use kodegen_claude_agent::{
     HookEvent, PermissionRequest, PermissionResult, PermissionResultAllow, RequestId, ToolName,
     ToolPermissionContext,
 };
@@ -17,21 +17,21 @@ async fn test_protocol_initialization() {
     let init_req = handler.create_init_request();
     assert_eq!(init_req.protocol_version, "1.0");
     assert!(init_req.capabilities.contains(
-        kodegen_tools_claude_agent::control::protocol::ClientCapabilities::BIDIRECTIONAL
+        kodegen_claude_agent::control::protocol::ClientCapabilities::BIDIRECTIONAL
     ));
     assert!(
         init_req
             .capabilities
-            .contains(kodegen_tools_claude_agent::control::protocol::ClientCapabilities::HOOKS)
+            .contains(kodegen_claude_agent::control::protocol::ClientCapabilities::HOOKS)
     );
     assert!(
         init_req.capabilities.contains(
-            kodegen_tools_claude_agent::control::protocol::ClientCapabilities::PERMISSIONS
+            kodegen_claude_agent::control::protocol::ClientCapabilities::PERMISSIONS
         )
     );
     assert!(
         init_req.capabilities.contains(
-            kodegen_tools_claude_agent::control::protocol::ClientCapabilities::INTERRUPTS
+            kodegen_claude_agent::control::protocol::ClientCapabilities::INTERRUPTS
         )
     );
 
@@ -40,7 +40,7 @@ async fn test_protocol_initialization() {
         protocol_version: "1.0".to_string(),
         cli_version: "1.0.0".to_string(),
         capabilities:
-            kodegen_tools_claude_agent::control::protocol::ServerCapabilities::all_features(),
+            kodegen_claude_agent::control::protocol::ServerCapabilities::all_features(),
         session_id: "test-session-123".to_string(),
     };
 
@@ -58,7 +58,7 @@ async fn test_protocol_version_mismatch() {
         protocol_version: "2.0".to_string(),
         cli_version: "1.0.0".to_string(),
         capabilities:
-            kodegen_tools_claude_agent::control::protocol::ServerCapabilities::all_features(),
+            kodegen_claude_agent::control::protocol::ServerCapabilities::all_features(),
         session_id: "test-session-123".to_string(),
     };
 
@@ -343,7 +343,7 @@ async fn test_init_message_serialization() {
         ControlMessage::Init(init) => {
             assert_eq!(init.protocol_version, "1.0");
             assert!(init.capabilities.contains(
-                kodegen_tools_claude_agent::control::protocol::ClientCapabilities::BIDIRECTIONAL
+                kodegen_claude_agent::control::protocol::ClientCapabilities::BIDIRECTIONAL
             ));
         }
         _ => panic!("Wrong message type"),
@@ -357,7 +357,7 @@ async fn test_init_response_message_serialization() {
         protocol_version: "1.0".to_string(),
         cli_version: "1.0.0".to_string(),
         capabilities:
-            kodegen_tools_claude_agent::control::protocol::ServerCapabilities::all_features(),
+            kodegen_claude_agent::control::protocol::ServerCapabilities::all_features(),
         session_id: "test_session".to_string(),
     };
     let message = ControlMessage::InitResponse(init_response);

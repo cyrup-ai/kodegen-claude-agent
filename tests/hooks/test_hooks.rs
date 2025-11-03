@@ -2,8 +2,8 @@
 //!
 //! Tests the hook system for intercepting agent events
 
-use kodegen_tools_claude_agent::hooks::{HookManager, HookMatcherBuilder};
-use kodegen_tools_claude_agent::{HookContext, HookOutput};
+use kodegen_claude_agent::hooks::{HookManager, HookMatcherBuilder};
+use kodegen_claude_agent::{HookContext, HookOutput};
 
 #[tokio::test]
 async fn test_hook_manager() {

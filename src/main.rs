@@ -9,7 +9,7 @@ use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
 use std::sync::Arc;
 
 // Wrapper to impl ShutdownHook for Arc<AgentManager>
-struct AgentManagerWrapper(Arc<kodegen_tools_claude_agent::AgentManager>);
+struct AgentManagerWrapper(Arc<kodegen_claude_agent::AgentManager>);
 
 impl ShutdownHook for AgentManagerWrapper {
     fn shutdown(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>> {
@@ -28,14 +28,14 @@ async fn main() -> Result<()> {
         let mut managers = Managers::new();
 
         // Initialize agent manager
-        let agent_manager = Arc::new(kodegen_tools_claude_agent::AgentManager::new());
+        let agent_manager = Arc::new(kodegen_claude_agent::AgentManager::new());
         managers.register(AgentManagerWrapper(agent_manager.clone()));
 
         // Initialize prompt manager
         let prompt_manager = Arc::new(kodegen_tools_prompt::PromptManager::new());
 
         // Register all 5 Claude agent tools (need AgentManager + PromptManager)
-        use kodegen_tools_claude_agent::*;
+        use kodegen_claude_agent::*;
 
         (tool_router, prompt_router) = register_tool(
             tool_router,

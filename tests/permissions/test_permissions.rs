@@ -2,8 +2,8 @@
 //!
 //! Tests the permission system for tool access control
 
-use kodegen_tools_claude_agent::permissions::PermissionManager;
-use kodegen_tools_claude_agent::{PermissionResult, ToolName, ToolPermissionContext};
+use kodegen_claude_agent::permissions::PermissionManager;
+use kodegen_claude_agent::{PermissionResult, ToolName, ToolPermissionContext};
 
 #[tokio::test]
 async fn test_permission_manager_default_allow() {

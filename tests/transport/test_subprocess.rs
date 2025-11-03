@@ -2,7 +2,7 @@
 //!
 //! Tests the subprocess transport implementation
 
-use kodegen_tools_claude_agent::transport::{PromptInput, SubprocessTransport};
+use kodegen_claude_agent::transport::{PromptInput, SubprocessTransport};
 
 #[test]
 fn test_find_cli() {
