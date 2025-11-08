@@ -37,8 +37,8 @@ const CLEANUP_INTERVAL_SECS: u64 = 60;
 /// - Working status detection
 /// - Automatic cleanup of completed sessions
 pub struct AgentManager {
-    pub(crate) active_sessions: Arc<Mutex<HashMap<String, AgentSessionInfo>>>,
-    pub(crate) completed_sessions: Arc<Mutex<HashMap<String, CompletedAgentSession>>>,
+    pub(in crate::manager) active_sessions: Arc<Mutex<HashMap<String, AgentSessionInfo>>>,
+    pub(in crate::manager) completed_sessions: Arc<Mutex<HashMap<String, CompletedAgentSession>>>,
     cleanup_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
