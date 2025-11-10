@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
         Box::pin(async move {
         let mut tool_router = ToolRouter::new();
         let mut prompt_router = PromptRouter::new();
-        let mut managers = Managers::new();
+        let managers = Managers::new();
 
         // Initialize agent manager
         let agent_manager = Arc::new(kodegen_claude_agent::AgentManager::new());

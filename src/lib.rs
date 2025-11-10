@@ -83,7 +83,7 @@
 //!
 //! Create in-process tools that Claude can invoke directly:
 //!
-//! ```no_run
+//! ```ignore
 //! # use kodegen_claude_agent::mcp::{SdkMcpServer, SdkMcpTool, ToolResult};
 //! # use serde_json::json;
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -356,7 +356,7 @@ pub async fn start_server(
 
     let _ = env_logger::try_init();
 
-    if let Err(_) = rustls::crypto::ring::default_provider().install_default() {
+    if rustls::crypto::ring::default_provider().install_default().is_err() {
         log::debug!("rustls crypto provider already installed");
     }
 
