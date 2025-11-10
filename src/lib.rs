@@ -323,3 +323,125 @@ pub use manager::AgentManager;
 
 // Prompt input types
 pub use types::{PromptInput, PromptTemplateInput};
+
+// ============================================================================
+// EMBEDDED SERVER FUNCTION
+// ============================================================================
+
+use std::pin::Pin;
+use std::future::Future;
+use std::sync::Arc;
+
+// Wrapper to implement ShutdownHook for AgentManager
+struct AgentManagerWrapper(Arc<crate::AgentManager>);
+
+impl kodegen_server_http::ShutdownHook for AgentManagerWrapper {
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + '_>> {
+        let manager = self.0.clone();
+        Box::pin(async move {
+            manager.shutdown().await.map_err(|e| anyhow::anyhow!("{}", e))
+        })
+    }
+}
+
+/// Start the claude-agent HTTP server programmatically for embedded mode
+pub async fn start_server(
+    addr: std::net::SocketAddr,
+    tls_cert: Option<std::path::PathBuf>,
+    tls_key: Option<std::path::PathBuf>,
+) -> anyhow::Result<()> {
+    use kodegen_server_http::{Managers, RouterSet, register_tool};
+    use kodegen_tools_config::ConfigManager;
+    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
+
+    let _ = env_logger::try_init();
+
+    if let Err(_) = rustls::crypto::ring::default_provider().install_default() {
+        log::debug!("rustls crypto provider already installed");
+    }
+
+    let config = ConfigManager::new();
+    config.init().await?;
+
+    let timestamp = chrono::Utc::now();
+    let pid = std::process::id();
+    let instance_id = format!("{}-{}", timestamp.format("%Y%m%d-%H%M%S-%9f"), pid);
+    let usage_tracker = kodegen_utils::usage_tracker::UsageTracker::new(
+        format!("claude-agent-{}", instance_id)
+    );
+
+    kodegen_mcp_tool::tool_history::init_global_history(instance_id.clone()).await;
+
+    let mut tool_router = ToolRouter::new();
+    let mut prompt_router = PromptRouter::new();
+    let managers = Managers::new();
+
+    // Initialize agent manager
+    let agent_manager = Arc::new(crate::AgentManager::new());
+    managers.register(AgentManagerWrapper(agent_manager.clone())).await;
+
+    // Initialize prompt manager (from kodegen-tools-prompt)
+    let prompt_manager = Arc::new(kodegen_tools_prompt::PromptManager::new());
+
+    // Register all 5 Claude agent tools
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::SpawnClaudeAgentTool::new(agent_manager.clone(), prompt_manager.clone()),
+    );
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::SendClaudeAgentPromptTool::new(agent_manager.clone(), prompt_manager.clone()),
+    );
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::ReadClaudeAgentOutputTool::new(agent_manager.clone()),
+    );
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::ListClaudeAgentsTool::new(agent_manager.clone()),
+    );
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::TerminateClaudeAgentSessionTool::new(agent_manager.clone()),
+    );
+
+    let router_set = RouterSet::new(tool_router, prompt_router, managers);
+
+    // Create session manager
+    let session_config = rmcp::transport::streamable_http_server::session::local::SessionConfig {
+        channel_capacity: 16,
+        keep_alive: Some(std::time::Duration::from_secs(3600)),
+    };
+    let session_manager = Arc::new(
+        rmcp::transport::streamable_http_server::session::local::LocalSessionManager {
+            sessions: Default::default(),
+            session_config,
+        }
+    );
+
+    // Create HTTP server
+    let server = kodegen_server_http::HttpServer::new(
+        router_set.tool_router,
+        router_set.prompt_router,
+        usage_tracker,
+        config,
+        router_set.managers,
+        session_manager,
+    );
+
+    // Start server with TLS
+    let tls_config = tls_cert.zip(tls_key);
+    let shutdown_timeout = std::time::Duration::from_secs(30);
+    let handle = server.serve_with_tls(addr, tls_config, shutdown_timeout).await?;
+
+    // Wait for completion (kodegend controls shutdown via handle)
+    handle.wait_for_completion(shutdown_timeout).await
+        .map_err(|e| anyhow::anyhow!("Server shutdown error: {:?}", e))?;
+
+    Ok(())
+}

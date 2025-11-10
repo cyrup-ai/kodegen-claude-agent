@@ -23,13 +23,14 @@ impl ShutdownHook for AgentManagerWrapper {
 #[tokio::main]
 async fn main() -> Result<()> {
     run_http_server("claude-agent", |_config, _tracker| {
+        Box::pin(async move {
         let mut tool_router = ToolRouter::new();
         let mut prompt_router = PromptRouter::new();
         let mut managers = Managers::new();
 
         // Initialize agent manager
         let agent_manager = Arc::new(kodegen_claude_agent::AgentManager::new());
-        managers.register(AgentManagerWrapper(agent_manager.clone()));
+        managers.register(AgentManagerWrapper(agent_manager.clone())).await;
 
         // Initialize prompt manager
         let prompt_manager = Arc::new(kodegen_tools_prompt::PromptManager::new());
@@ -64,6 +65,7 @@ async fn main() -> Result<()> {
         );
 
         Ok(RouterSet::new(tool_router, prompt_router, managers))
+        })
     })
     .await
 }
