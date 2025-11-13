@@ -1,8 +1,7 @@
 use crate::manager::AgentManager;
 use kodegen_mcp_schema::claude_agent::{TerminateClaudeAgentSessionArgs, TerminateClaudeAgentSessionPromptArgs};
 use kodegen_mcp_tool::Tool;
-use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::Value;
+use rmcp::model::{Content, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::sync::Arc;
 
 // ============================================================================
@@ -36,7 +35,7 @@ impl Tool for TerminateClaudeAgentSessionTool {
     type PromptArgs = TerminateClaudeAgentSessionPromptArgs;
 
     fn name() -> &'static str {
-        "terminate_claude_agent_session"
+        "claude_terminate_agent_session"
     }
 
     fn description() -> &'static str {
@@ -62,15 +61,47 @@ impl Tool for TerminateClaudeAgentSessionTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, kodegen_mcp_tool::error::McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, kodegen_mcp_tool::error::McpError> {
         let response = self
             .agent_manager
             .terminate_session(&args.session_id)
             .await
             .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))?;
 
-        serde_json::to_value(response)
-            .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))
+        let mut contents = Vec::new();
+
+        // Human summary
+        let summary = if response.success {
+            format!(
+                "✓ Agent session terminated\n\n\
+                 Session: {}\n\
+                 Final turn: {}\n\
+                 Messages: {}\n\
+                 Runtime: {:.1}s\n\n\
+                 Session data retained for 1 minute for final reads",
+                response.session_id,
+                response.final_turn_count,
+                response.total_messages,
+                response.runtime_ms as f64 / 1000.0
+            )
+        } else {
+            format!(
+                "✗ Failed to terminate agent\n\n\
+                 Session: {}\n\
+                 Error: Unknown termination failure",
+                response.session_id
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = serde_json::to_value(&response)
+            .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))?;
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
@@ -84,7 +115,7 @@ impl Tool for TerminateClaudeAgentSessionTool {
         Ok(vec![PromptMessage {
             role: PromptMessageRole::User,
             content: PromptMessageContent::Text {
-                text: r#"# terminate_claude_agent_session
+                text: r#"# claude_terminate_agent_session
 
 Gracefully terminate an agent session and return final statistics.
 

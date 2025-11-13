@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_claude_agent"
-version = "0.1.4"
+version = "0.2.1"
 edition = "2024"
 description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
 authors = ["KODEGEN.ᴀɪ"]
@@ -30,11 +30,11 @@ macos = "public.app-category.developer-tools"
 
 [dependencies]
 
-kodegen_mcp_tool = { version = "0.1" }
-kodegen_mcp_schema = { version = "0.1" }
-kodegen_server_http = { version = "0.1" }
-kodegen_tools_prompt = { version = "0.1"  }
-kodegen_config_manager = { version = "0.1" }
+kodegen_mcp_tool = { version = "0.2" }
+kodegen_mcp_schema = { version = "0.2" }
+kodegen_server_http = { version = "0.2" }
+kodegen_tools_prompt = { version = "0.2"  }
+kodegen_config_manager = { version = "0.2" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -74,7 +74,7 @@ chrono = "0.4"
 rustls = "0.23"
 
 # Usage tracking for server
-kodegen_utils = { version = "0.1" }
+kodegen_utils = { version = "0.2" }
 
 # Terminal colors - for formatted output
 cyrup_termcolor = "2"
@@ -92,7 +92,7 @@ anyhow = "1"
 parking_lot = "0.12"
 
 [dev-dependencies]
-kodegen_mcp_client = { version = "0.1"  }
+kodegen_mcp_client = { version = "0.2"  }
 anyhow = "1"
 tokio-test = "0.4"
 tempfile = "3"

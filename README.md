@@ -30,11 +30,11 @@ This project provides both:
 
 | Tool | Description |
 |------|-------------|
-| `spawn_claude_agent` | Create a new Claude agent sub-session with configurable options |
-| `send_claude_agent_prompt` | Send a prompt to an existing agent session |
-| `read_claude_agent_output` | Read messages and responses from an agent session |
-| `list_claude_agents` | List all active and completed agent sessions |
-| `terminate_claude_agent_session` | Gracefully terminate an agent session |
+| `claude_spawn_agent` | Create a new Claude agent sub-session with configurable options |
+| `claude_send_agent_prompt` | Send a prompt to an existing agent session |
+| `claude_read_agent_output` | Read messages and responses from an agent session |
+| `claude_list_agents` | List all active and completed agent sessions |
+| `claude_terminate_agent_session` | Gracefully terminate an agent session |
 
 ## Installation
 

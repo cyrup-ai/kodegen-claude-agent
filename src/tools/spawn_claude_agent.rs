@@ -1,8 +1,8 @@
 use crate::manager::AgentManager;
 use kodegen_mcp_schema::claude_agent::{SpawnClaudeAgentArgs, SpawnClaudeAgentPromptArgs};
 use kodegen_mcp_tool::Tool;
-use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::{Value, json};
+use rmcp::model::{Content, PromptMessage, PromptMessageContent, PromptMessageRole};
+use serde_json::json;
 use std::sync::Arc;
 use tokio::time::Duration;
 
@@ -47,7 +47,7 @@ impl Tool for SpawnClaudeAgentTool {
     type PromptArgs = SpawnClaudeAgentPromptArgs;
 
     fn name() -> &'static str {
-        "spawn_claude_agent"
+        "claude_spawn_agent"
     }
 
     fn description() -> &'static str {
@@ -73,7 +73,7 @@ impl Tool for SpawnClaudeAgentTool {
         true
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, kodegen_mcp_tool::error::McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, kodegen_mcp_tool::error::McpError> {
         // Resolve prompt (render template if needed)
         let resolved_prompt = prompt_input::resolve_schema_prompt(&args.prompt, &self.prompt_manager)
             .await
@@ -119,11 +119,61 @@ impl Tool for SpawnClaudeAgentTool {
             results.push(info);
         }
 
-        Ok(json!({
+        let mut contents = Vec::new();
+
+        // Human summary
+        let summary = if results.len() == 1 {
+            // Single agent format
+            let agent = &results[0];
+            format!(
+                "✓ Spawned Claude agent\n\n\
+                 Session: {}\n\
+                 Label: {}\n\
+                 Status: {} (turn {}/{})\n\
+                 Runtime: {:.1}s\n\n\
+                 Use read_claude_agent_output to monitor progress",
+                agent.session_id,
+                agent.label,
+                if agent.working { "Working" } else { "Idle" },
+                agent.turn_count,
+                agent.max_turns,
+                agent.runtime_ms as f64 / 1000.0
+            )
+        } else {
+            // Multiple agents format
+            let agent_list = results.iter()
+                .map(|a| format!(
+                    "  • {} [{}] - {} (turn {}/{})",
+                    a.session_id,
+                    a.label,
+                    if a.working { "Working" } else { "Idle" },
+                    a.turn_count,
+                    a.max_turns
+                ))
+                .collect::<Vec<_>>()
+                .join("\n");
+            
+            format!(
+                "✓ Spawned {} Claude agent(s)\n\n\
+                 Sessions:\n{}\n\n\
+                 Use read_claude_agent_output to monitor progress",
+                results.len(),
+                agent_list
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = json!({
             "session_ids": session_ids,
             "worker_count": args.worker_count,
             "agents": results
-        }))
+        });
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
@@ -137,7 +187,7 @@ impl Tool for SpawnClaudeAgentTool {
         Ok(vec![PromptMessage {
             role: PromptMessageRole::User,
             content: PromptMessageContent::Text {
-                text: r#"# spawn_claude_agent
+                text: r#"# claude_spawn_agent
 
 Spawn one or more Claude agent sessions for parallel task delegation. Each agent runs independently with identical configuration.
 
@@ -168,7 +218,7 @@ Spawn one or more Claude agent sessions for parallel task delegation. Each agent
   },
   "worker_count": 3,
   "label": "SecurityReview",
-  "allowed_tools": ["read_file", "list_directory", "grep_search"],
+  "allowed_tools": ["fs_read_file", "fs_list_directory", "grep_search"],
   "max_turns": 10
 }
 ```
@@ -178,9 +228,9 @@ Returns session IDs and initial status for each spawned agent, including working
 
 ## Workflow
 1. Spawn agent(s) with this tool
-2. Poll with `read_claude_agent_output` to get responses
-3. Send follow-ups with `send_claude_agent_prompt`
-4. Terminate with `terminate_claude_agent_session` when done"#.to_string(),
+2. Poll with `claude_read_agent_output` to get responses
+3. Send follow-ups with `claude_send_agent_prompt`
+4. Terminate with `claude_terminate_agent_session` when done"#.to_string(),
             },
         }])
     }

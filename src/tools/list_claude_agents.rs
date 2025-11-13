@@ -1,8 +1,7 @@
 use crate::manager::AgentManager;
 use kodegen_mcp_schema::claude_agent::{ListClaudeAgentsArgs, ListClaudeAgentsPromptArgs};
 use kodegen_mcp_tool::Tool;
-use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::Value;
+use rmcp::model::{Content, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::sync::Arc;
 
 // ============================================================================
@@ -36,7 +35,7 @@ impl Tool for ListClaudeAgentsTool {
     type PromptArgs = ListClaudeAgentsPromptArgs;
 
     fn name() -> &'static str {
-        "list_claude_agents"
+        "claude_list_agents"
     }
 
     fn description() -> &'static str {
@@ -62,15 +61,87 @@ impl Tool for ListClaudeAgentsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Value, kodegen_mcp_tool::error::McpError> {
+    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, kodegen_mcp_tool::error::McpError> {
         let response = self
             .agent_manager
             .list_sessions(args.include_completed, args.last_output_lines)
             .await
             .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))?;
 
-        serde_json::to_value(response)
-            .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))
+        let mut contents = Vec::new();
+
+        // Human summary
+        let summary = if response.agents.is_empty() {
+            "🤖 No active agents\n\n\
+             Spawn an agent with claude_spawn_agent to start a task".to_string()
+        } else {
+            let working_agents: Vec<_> = response.agents.iter()
+                .filter(|a| a.working && !a.is_complete)
+                .collect();
+            
+            let idle_agents: Vec<_> = response.agents.iter()
+                .filter(|a| !a.working && !a.is_complete)
+                .collect();
+            
+            let completed_agents: Vec<_> = response.agents.iter()
+                .filter(|a| a.is_complete)
+                .collect();
+
+            let mut sections = Vec::new();
+            
+            if !working_agents.is_empty() {
+                let list = working_agents.iter()
+                    .map(|a| format!(
+                        "  • {} [{}] - Turn {}/{}, {:.1}s, {} messages",
+                        a.session_id, a.label, a.turn_count, a.max_turns,
+                        a.runtime_ms as f64 / 1000.0, a.message_count
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                sections.push(format!("Working:\n{}", list));
+            }
+            
+            if !idle_agents.is_empty() {
+                let list = idle_agents.iter()
+                    .map(|a| format!(
+                        "  • {} [{}] - Turn {}/{}, {:.1}s, {} messages",
+                        a.session_id, a.label, a.turn_count, a.max_turns,
+                        a.runtime_ms as f64 / 1000.0, a.message_count
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                sections.push(format!("Idle:\n{}", list));
+            }
+            
+            if !completed_agents.is_empty() {
+                let list = completed_agents.iter()
+                    .map(|a| format!(
+                        "  • {} [{}] - Turn {}/{}, {:.1}s, {} messages ✓",
+                        a.session_id, a.label, a.turn_count, a.max_turns,
+                        a.runtime_ms as f64 / 1000.0, a.message_count
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                sections.push(format!("Completed:\n{}", list));
+            }
+            
+            format!(
+                "🤖 Active agents ({} working, {} completed)\n\n{}",
+                response.total_active,
+                response.total_completed,
+                sections.join("\n\n")
+            )
+        };
+        contents.push(Content::text(summary));
+
+        // JSON metadata
+        let metadata = serde_json::to_value(&response)
+            .map_err(|e| kodegen_mcp_tool::error::McpError::Other(e.into()))?;
+        let json_str = serde_json::to_string_pretty(&metadata)
+            .unwrap_or_else(|_| "{}".to_string());
+        contents.push(Content::text(json_str));
+
+        Ok(contents)
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
@@ -84,7 +155,7 @@ impl Tool for ListClaudeAgentsTool {
         Ok(vec![PromptMessage {
             role: PromptMessageRole::User,
             content: PromptMessageContent::Text {
-                text: r#"# list_claude_agents
+                text: r#"# claude_list_agents
 
 List all active and completed agent sessions with status overview and output preview.
 
