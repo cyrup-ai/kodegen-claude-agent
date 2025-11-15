@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_claude_agent"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
 authors = ["KODEGEN.ᴀɪ"]
@@ -33,7 +33,7 @@ macos = "public.app-category.developer-tools"
 kodegen_mcp_tool = { version = "0.2" }
 kodegen_mcp_schema = { version = "0.2" }
 kodegen_server_http = { version = "0.2" }
-kodegen_tools_prompt = { version = "0.2"  }
+kodegen_tools_prompt = { version = "0.2" }
 kodegen_config_manager = { version = "0.2" }
 
 # Async runtime
@@ -80,7 +80,7 @@ kodegen_utils = { version = "0.2" }
 cyrup_termcolor = "2"
 
 # MCP SDK - official protocol implementation
-rmcp = { version = "0.8", features = ["client", "schemars", "server", "transport-sse-server"]}
+rmcp = { version = "0.8", features = ["client", "schemars", "server", "transport-sse-server"] }
 
 # JSON Schema generation
 schemars = "1"
@@ -92,7 +92,7 @@ anyhow = "1"
 parking_lot = "0.12"
 
 [dev-dependencies]
-kodegen_mcp_client = { version = "0.2"  }
+kodegen_mcp_client = { version = "0.2" }
 anyhow = "1"
 tokio-test = "0.4"
 tempfile = "3"

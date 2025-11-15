@@ -35,7 +35,7 @@ impl Tool for ReadClaudeAgentOutputTool {
     type PromptArgs = ReadClaudeAgentOutputPromptArgs;
 
     fn name() -> &'static str {
-        "claude_read_agent_output"
+        kodegen_mcp_schema::claude_agent::CLAUDE_READ_AGENT_OUTPUT
     }
 
     fn description() -> &'static str {

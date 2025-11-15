@@ -47,7 +47,7 @@ impl Tool for SpawnClaudeAgentTool {
     type PromptArgs = SpawnClaudeAgentPromptArgs;
 
     fn name() -> &'static str {
-        "claude_spawn_agent"
+        kodegen_mcp_schema::claude_agent::CLAUDE_SPAWN_AGENT
     }
 
     fn description() -> &'static str {

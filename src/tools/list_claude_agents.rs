@@ -35,7 +35,7 @@ impl Tool for ListClaudeAgentsTool {
     type PromptArgs = ListClaudeAgentsPromptArgs;
 
     fn name() -> &'static str {
-        "claude_list_agents"
+        kodegen_mcp_schema::claude_agent::CLAUDE_LIST_AGENTS
     }
 
     fn description() -> &'static str {

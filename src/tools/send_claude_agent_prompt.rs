@@ -46,7 +46,7 @@ impl Tool for SendClaudeAgentPromptTool {
     type PromptArgs = SendClaudeAgentPromptPromptArgs;
 
     fn name() -> &'static str {
-        "claude_send_agent_prompt"
+        kodegen_mcp_schema::claude_agent::CLAUDE_SEND_AGENT_PROMPT
     }
 
     fn description() -> &'static str {

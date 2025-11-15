@@ -35,7 +35,7 @@ impl Tool for TerminateClaudeAgentSessionTool {
     type PromptArgs = TerminateClaudeAgentSessionPromptArgs;
 
     fn name() -> &'static str {
-        "claude_terminate_agent_session"
+        kodegen_mcp_schema::claude_agent::CLAUDE_TERMINATE_AGENT_SESSION
     }
 
     fn description() -> &'static str {

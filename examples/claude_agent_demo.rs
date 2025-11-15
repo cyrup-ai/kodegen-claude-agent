@@ -2,7 +2,7 @@ mod common;
 
 use anyhow::{Context, Result};
 use kodegen_mcp_client::responses::SpawnClaudeAgentResponse;
-use kodegen_mcp_client::tools;
+use kodegen_mcp_schema::claude_agent::*;
 use rmcp::model::CallToolResult;
 use serde_json::json;
 use tracing::info;
@@ -93,7 +93,7 @@ async fn poll_until_complete(
     for attempt in 1..=max_polls {
         let result = client
             .call_tool(
-                tools::READ_CLAUDE_AGENT_OUTPUT,
+                CLAUDE_READ_OUTPUT,
                 json!({
                     "session_id": session_id,
                     "offset": 0,
@@ -125,7 +125,7 @@ async fn poll_until_complete(
     // Timeout - return last output anyway
     let result = client
         .call_tool(
-            tools::READ_CLAUDE_AGENT_OUTPUT,
+            CLAUDE_READ_OUTPUT,
             json!({
                 "session_id": session_id,
                 "offset": 0,
@@ -214,7 +214,7 @@ async fn main() -> anyhow::Result<()> {
     info!("1. Testing spawn_claude_agent with context-dependent conversation");
     let response: SpawnClaudeAgentResponse = client
         .call_tool_typed(
-            tools::SPAWN_CLAUDE_AGENT,
+            CLAUDE_SPAWN_AGENT,
             json!({
                 "prompt": {
                     "type": "string",
@@ -252,7 +252,7 @@ async fn main() -> anyhow::Result<()> {
 
     client
         .call_tool(
-            tools::SEND_CLAUDE_AGENT_PROMPT,
+            CLAUDE_SEND_PROMPT,
             json!({
                 "session_id": session_id,
                 "prompt": {
@@ -296,7 +296,7 @@ async fn main() -> anyhow::Result<()> {
 
     client
         .call_tool(
-            tools::SEND_CLAUDE_AGENT_PROMPT,
+            CLAUDE_SEND_PROMPT,
             json!({
                 "session_id": session_id,
                 "prompt": {
@@ -337,7 +337,7 @@ async fn main() -> anyhow::Result<()> {
     // 4. LIST_CLAUDE_AGENTS - List all active agents
     info!("\n=== 4. Testing list_claude_agents ===");
     let result = client
-        .call_tool(tools::LIST_CLAUDE_AGENTS, json!({}))
+        .call_tool(CLAUDE_LIST_AGENTS, json!({}))
         .await
         .context("Failed to list agents")?;
 
@@ -358,7 +358,7 @@ async fn main() -> anyhow::Result<()> {
 
     let response_2: SpawnClaudeAgentResponse = client
         .call_tool_typed(
-            tools::SPAWN_CLAUDE_AGENT,
+            CLAUDE_SPAWN_AGENT,
             json!({
                 "prompt": {
                     "type": "string",
@@ -374,7 +374,7 @@ async fn main() -> anyhow::Result<()> {
 
     // List all agents to verify both active
     let result = client
-        .call_tool(tools::LIST_CLAUDE_AGENTS, json!({}))
+        .call_tool(CLAUDE_LIST_AGENTS, json!({}))
         .await
         .context("Failed to list agents for verification")?;
 
@@ -394,7 +394,7 @@ async fn main() -> anyhow::Result<()> {
     info!("5. Testing terminate_claude_agent_session");
     client
         .call_tool(
-            tools::TERMINATE_CLAUDE_AGENT_SESSION,
+            CLAUDE_TERMINATE_SESSION,
             json!({ "session_id": session_id }),
         )
         .await
@@ -404,7 +404,7 @@ async fn main() -> anyhow::Result<()> {
     // Terminate second agent if it exists
     client
         .call_tool(
-            tools::TERMINATE_CLAUDE_AGENT_SESSION,
+            CLAUDE_TERMINATE_SESSION,
             json!({ "session_id": session_id_2 }),
         )
         .await
@@ -414,7 +414,7 @@ async fn main() -> anyhow::Result<()> {
     // Verify all agents terminated
     info!("\n=== Verifying cleanup ===");
     let result = client
-        .call_tool(tools::LIST_CLAUDE_AGENTS, json!({}))
+        .call_tool(CLAUDE_LIST_AGENTS, json!({}))
         .await
         .context("Failed to verify cleanup")?;
 
