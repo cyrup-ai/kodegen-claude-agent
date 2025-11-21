@@ -1,6 +1,6 @@
 use crate::manager::AgentManager;
 use kodegen_mcp_schema::claude_agent::{ListClaudeAgentsArgs, ListClaudeAgentsPromptArgs};
-use kodegen_mcp_tool::Tool;
+use kodegen_mcp_tool::{Tool, ToolExecutionContext};
 use rmcp::model::{Content, PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::sync::Arc;
 
@@ -61,7 +61,7 @@ impl Tool for ListClaudeAgentsTool {
         false
     }
 
-    async fn execute(&self, args: Self::Args) -> Result<Vec<Content>, kodegen_mcp_tool::error::McpError> {
+    async fn execute(&self, args: Self::Args, _ctx: ToolExecutionContext) -> Result<Vec<Content>, kodegen_mcp_tool::error::McpError> {
         let response = self
             .agent_manager
             .list_sessions(args.include_completed, args.last_output_lines)

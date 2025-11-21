@@ -3,10 +3,10 @@
 //! Handles sending messages to sessions and terminating sessions.
 
 use chrono::Utc;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, broadcast};
 
 use crate::error::{ClaudeError, Result};
-use crate::types::agent::TerminateResponse;
+use crate::types::agent::{TerminateResponse, SerializedMessage};
 
 use super::super::commands::SessionCommand;
 use super::super::session::CompletedAgentSession;
@@ -92,5 +92,18 @@ impl AgentManager {
             total_messages,
             runtime_ms,
         })
+    }
+
+    /// Subscribe to real-time message events for a session
+    ///
+    /// Returns a broadcast receiver that will receive all new messages
+    /// as they arrive from the agent. Used for event-driven streaming.
+    pub async fn subscribe_to_messages(&self, session_id: &str) -> Result<broadcast::Receiver<SerializedMessage>> {
+        let active = self.active_sessions.lock().await;
+        let session = active
+            .get(session_id)
+            .ok_or_else(|| ClaudeError::SessionNotFound(session_id.to_string()))?;
+        
+        Ok(session.message_tx.subscribe())
     }
 }

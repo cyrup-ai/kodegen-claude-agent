@@ -90,6 +90,9 @@ impl AgentManager {
         // Create command channel
         let (command_tx, command_rx) = mpsc::unbounded_channel();
 
+        // Create broadcast channel for real-time message streaming (capacity: 100)
+        let (message_tx, _) = tokio::sync::broadcast::channel(100);
+
         // Create shared state for background task
         let messages_arc = Arc::new(Mutex::new(VecDeque::with_capacity(1000)));
         let last_message_arc = Arc::new(Mutex::new(Instant::now()));
@@ -102,6 +105,7 @@ impl AgentManager {
             label: request.label,
             command_tx: command_tx.clone(),
             messages: Arc::clone(&messages_arc),
+            message_tx: message_tx.clone(),
             created_at: Instant::now(),
             last_message_at: Arc::clone(&last_message_arc),
             turn_count: Arc::clone(&turn_count_arc),
@@ -118,6 +122,7 @@ impl AgentManager {
         // Spawn background message collector
         let ctx = CollectorContext {
             messages: messages_arc,
+            message_tx,
             last_message: last_message_arc,
             turn_count: turn_count_arc,
             is_complete: is_complete_arc,

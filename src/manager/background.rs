@@ -6,7 +6,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, broadcast};
 
 use super::commands::SessionCommand;
 use super::helpers::serialize_message;
@@ -20,6 +20,7 @@ const BUFFER_SIZE: usize = 1000;
 /// Shared state for message collector task
 pub(super) struct CollectorContext {
     pub messages: Arc<Mutex<VecDeque<SerializedMessage>>>,
+    pub message_tx: broadcast::Sender<SerializedMessage>,
     pub last_message: Arc<Mutex<Instant>>,
     pub turn_count: Arc<Mutex<u32>>,
     pub is_complete: Arc<Mutex<bool>>,
@@ -80,8 +81,11 @@ pub(super) fn spawn_message_collector(
                                 if messages.len() == BUFFER_SIZE {
                                     messages.pop_front();  // Remove oldest
                                 }
-                                messages.push_back(serialized);
+                                messages.push_back(serialized.clone());
                             }
+
+                            // Broadcast message for real-time streaming (ignore errors if no receivers)
+                            let _ = ctx.message_tx.send(serialized);
 
                             // Update timestamp
                             *ctx.last_message.lock().await = Instant::now();

@@ -314,8 +314,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Provides MCP tools for spawning, managing, and interacting with Claude agent sessions.
 pub mod tools;
 pub use tools::{
-    ListClaudeAgentsTool, ReadClaudeAgentOutputTool, SendClaudeAgentPromptTool,
-    SpawnClaudeAgentTool, TerminateClaudeAgentSessionTool,
+    ClaudeAgentTool, ListClaudeAgentsTool, ReadClaudeAgentOutputTool,
 };
 
 // Agent session management
@@ -383,16 +382,12 @@ pub async fn start_server(
     // Initialize prompt manager (from kodegen-tools-prompt)
     let prompt_manager = Arc::new(kodegen_tools_prompt::PromptManager::new());
 
-    // Register all 5 Claude agent tools
+    // Register 3 Claude agent tools (unified API)
+    // Unified claude_agent tool (replaces spawn/send/terminate)
     (tool_router, prompt_router) = register_tool(
         tool_router,
         prompt_router,
-        crate::SpawnClaudeAgentTool::new(agent_manager.clone(), prompt_manager.clone()),
-    );
-    (tool_router, prompt_router) = register_tool(
-        tool_router,
-        prompt_router,
-        crate::SendClaudeAgentPromptTool::new(agent_manager.clone(), prompt_manager.clone()),
+        crate::ClaudeAgentTool::new(agent_manager.clone(), prompt_manager.clone()),
     );
     (tool_router, prompt_router) = register_tool(
         tool_router,
@@ -403,11 +398,6 @@ pub async fn start_server(
         tool_router,
         prompt_router,
         crate::ListClaudeAgentsTool::new(agent_manager.clone()),
-    );
-    (tool_router, prompt_router) = register_tool(
-        tool_router,
-        prompt_router,
-        crate::TerminateClaudeAgentSessionTool::new(agent_manager.clone()),
     );
 
     let router_set = RouterSet::new(tool_router, prompt_router, managers);

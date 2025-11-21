@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, broadcast};
 
 use super::commands::SessionCommand;
 use crate::types::agent::SerializedMessage;
@@ -28,6 +28,9 @@ pub(super) struct AgentSessionInfo {
 
     /// Circular buffer of messages (FIFO with capacity limit)
     pub messages: Arc<Mutex<VecDeque<SerializedMessage>>>,
+
+    /// Broadcast channel for real-time message notifications
+    pub message_tx: broadcast::Sender<SerializedMessage>,
 
     /// When the session was created
     pub created_at: Instant,
