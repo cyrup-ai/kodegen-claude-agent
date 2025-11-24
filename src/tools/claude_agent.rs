@@ -319,20 +319,167 @@ impl Tool for ClaudeAgentTool {
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
-        vec![]
+        vec![
+            rmcp::model::PromptArgument {
+                name: "focus_area".to_string(),
+                title: Some("Action Focus".to_string()),
+                description: Some(
+                    "Which agent action(s) to focus on learning: 'spawn' (create agents), 'send' (send prompts), "
+                    .to_string() + "'terminate' (clean up sessions), or 'all' for comprehensive overview (default: 'all')"
+                ),
+                required: Some(false),
+            },
+            rmcp::model::PromptArgument {
+                name: "detail_level".to_string(),
+                title: Some("Detail Level".to_string()),
+                description: Some(
+                    "Depth of explanation: 'basic' covers core usage with simple examples, "
+                    .to_string() + "'advanced' includes edge cases, best practices, performance notes, and gotchas (default: 'basic')"
+                ),
+                required: Some(false),
+            },
+        ]
     }
 
     async fn prompt(
         &self,
-        _args: Self::PromptArgs,
+        args: Self::PromptArgs,
     ) -> Result<Vec<PromptMessage>, McpError> {
-        Ok(vec![
+        let focus = args.focus_area.to_lowercase();
+        let detail = args.detail_level.to_lowercase();
+        let is_advanced = detail == "advanced";
+        
+        let mut messages = vec![
             PromptMessage {
                 role: PromptMessageRole::User,
                 content: PromptMessageContent::Text {
-                    text: "# claude_agent\n\nUnified Claude agent interface for spawning, interacting with, and managing agent sessions.\n\n## Actions\n\n### spawn\nCreate one or more new agent sessions:\n```json\n{\n  \"action\": \"spawn\",\n  \"prompt\": {\"type\": \"string\", \"value\": \"Analyze the codebase\"},\n  \"worker_count\": 1,\n  \"max_turns\": 10,\n  \"label\": \"Analyzer\"\n}\n```\n\n### send\nSend prompt to existing session:\n```json\n{\n  \"action\": \"send\",\n  \"session_id\": \"uuid-abc-123\",\n  \"prompt\": {\"type\": \"string\", \"value\": \"Now fix the issues\"}\n}\n```\n\n### terminate\nTerminate session:\n```json\n{\n  \"action\": \"terminate\",\n  \"session_id\": \"uuid-abc-123\"\n}\n```\n\n## Blocking Mode\n\nSet `blocking: true` to wait for agent to complete before returning.\n\n## Parallel Workers\n\nSet `worker_count > 1` to spawn multiple agents with identical configuration.".to_string(),
+                    text: if focus == "all" {
+                        format!(
+                            "How do I use the claude_agent tool to spawn autonomous agents and manage their lifecycle?{}",
+                            if is_advanced { " Include best practices and edge cases." } else { "" }
+                        )
+                    } else {
+                        format!(
+                            "How do I use the claude_agent '{}' action?{}",
+                            focus,
+                            if is_advanced { " Include best practices and edge cases." } else { "" }
+                        )
+                    },
                 },
             },
-        ])
+        ];
+
+        let mut assistant_response = String::new();
+
+        // Universal intro
+        assistant_response.push_str(
+            "The claude_agent tool provides unified agent lifecycle management with three core actions:\n\n"
+        );
+
+        // SPAWN section
+        if focus == "all" || focus == "spawn" {
+            assistant_response.push_str(
+                "## spawn: Create Agent Sessions\n\
+                 Creates one or more autonomous agents with identical configuration.\n\n\
+                 Basic usage:\n\
+                 ```json\n\
+                 {\n  \"action\": \"spawn\",\n  \"prompt\": {\"type\": \"string\", \"value\": \"Analyze the codebase\"},\n  \"label\": \"Analyzer\",\n  \"worker_count\": 1,\n  \"max_turns\": 10\n}\n```\n\n\
+                 Parameters:\n\
+                 • prompt (required): Task description or template - what the agent should do\n\
+                 • worker_count: Number of parallel agents (default: 1)\n\
+                 • max_turns: Conversation limit before auto-termination (default: 10)\n\
+                 • label: Human-readable session name (auto-indexed for multiple workers)\n\
+                 • blocking: Wait for completion before returning (default: false)\n\n"
+            );
+
+            if is_advanced {
+                assistant_response.push_str(
+                    "Advanced patterns:\n\
+                     • Set blocking=true for sequential workflows; false for fire-and-forget\n\
+                     • worker_count>1 creates independently-tracked parallel agents\n\
+                     • Each agent has isolated context and turn counters\n\
+                     • System prompt customizes behavior; allowed_tools restricts capabilities\n\
+                     • Initial sessions inherit cwd; add_dirs provides context\n\n"
+                );
+            }
+        }
+
+        // SEND section
+        if focus == "all" || focus == "send" {
+            assistant_response.push_str(
+                "## send: Interact with Agent Sessions\n\
+                 Sends a prompt to an existing session, continuing its conversation.\n\n\
+                 Basic usage:\n\
+                 ```json\n\
+                 {\n  \"action\": \"send\",\n  \"session_id\": \"uuid-abc-123\",\n  \"prompt\": {\"type\": \"string\", \"value\": \"Now fix the bugs\"}\n}\n```\n\n\
+                 Parameters:\n\
+                 • session_id (required): UUID from spawn output\n\
+                 • prompt (required): Follow-up instruction or feedback\n\
+                 • blocking: Wait for agent response (default: false)\n\n"
+            );
+
+            if is_advanced {
+                assistant_response.push_str(
+                    "Advanced patterns:\n\
+                     • Streaming: Use blocking=true with ctx.stream() for real-time feedback\n\
+                     • Multi-turn: Each send increments turn counter toward max_turns limit\n\
+                     • Error handling: Invalid session_id returns descriptive error\n\
+                     • State preservation: Agent memory persists across sends\n\
+                     • Performance: Non-blocking sends return immediately; check status separately\n\n"
+                );
+            }
+        }
+
+        // TERMINATE section
+        if focus == "all" || focus == "terminate" {
+            assistant_response.push_str(
+                "## terminate: Clean Up Sessions\n\
+                 Gracefully closes an agent session and reclaims resources.\n\n\
+                 Basic usage:\n\
+                 ```json\n\
+                 {\n  \"action\": \"terminate\",\n  \"session_id\": \"uuid-abc-123\"\n}\n```\n\n\
+                 Parameters:\n\
+                 • session_id (required): UUID from spawn output\n\n"
+            );
+
+            if is_advanced {
+                assistant_response.push_str(
+                    "Advanced patterns:\n\
+                     • Call automatically when max_turns reached; no-op if already terminated\n\
+                     • Returns final turn count and session metadata\n\
+                     • Idempotent: Safe to call multiple times\n\
+                     • Resource cleanup: Subprocess and memory released immediately\n\n"
+                );
+            }
+        }
+
+        // Common patterns and gotchas
+        assistant_response.push_str("\n## Key Patterns\n");
+        assistant_response.push_str(
+            "• Prompt resolution: Both spawn and send accept template prompts with parameters\n\
+             • Streaming: blocking=true + ctx.stream() shows agent output in real-time\n\
+             • Multi-agent coordination: Spawn multiple workers, send prompts to specific sessions\n\
+             • Tool restrictions: allowed_tools (allowlist) OR disallowed_tools (blocklist)\n"
+        );
+
+        if is_advanced {
+            assistant_response.push_str(
+                "\n## Performance & Safety\n\
+                 • Turn limits protect against infinite loops (agent stops at max_turns)\n\
+                 • Non-blocking mode enables concurrent agent execution\n\
+                 • Sessions isolated by UUID; no cross-contamination\n\
+                 • Output streaming uses broadcast channels for efficiency\n\
+                 • Subprocess transport handles spawn cleanup automatically\n"
+            );
+        }
+
+        messages.push(PromptMessage {
+            role: PromptMessageRole::Assistant,
+            content: PromptMessageContent::Text {
+                text: assistant_response,
+            },
+        });
+
+        Ok(messages)
     }
 }

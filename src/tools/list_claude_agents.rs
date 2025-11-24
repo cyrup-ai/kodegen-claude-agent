@@ -145,7 +145,15 @@ impl Tool for ListClaudeAgentsTool {
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
-        vec![]
+        vec![rmcp::model::PromptArgument {
+            name: "use_case".to_string(),
+            title: None,
+            description: Some(
+                "Primary use case for listing agents (e.g., 'monitoring', 'debugging', 'filtering') \
+                 to customize examples and focus".to_string(),
+            ),
+            required: Some(false),
+        }]
     }
 
     async fn prompt(
