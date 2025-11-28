@@ -32,31 +32,16 @@ async fn main() -> Result<()> {
         let agent_manager = Arc::new(kodegen_claude_agent::AgentManager::new());
         managers.register(AgentManagerWrapper(agent_manager.clone())).await;
 
-        // Initialize prompt manager
-        let prompt_manager = Arc::new(kodegen_tools_prompt::PromptManager::new());
+        // Initialize agent registry
+        let agent_registry = Arc::new(kodegen_claude_agent::AgentRegistry::new(agent_manager.clone()));
 
-        // Register all 3 Claude agent tools
-        use kodegen_claude_agent::tools::{
-            ClaudeAgentTool,
-            ListClaudeAgentsTool,
-            ReadClaudeAgentOutputTool,
-        };
+        // Register unified Claude agent tool
+        use kodegen_claude_agent::tools::ClaudeAgentTool;
 
-        // Unified claude_agent tool (replaces spawn/send/terminate)
         (tool_router, prompt_router) = register_tool(
             tool_router,
             prompt_router,
-            ClaudeAgentTool::new(agent_manager.clone(), prompt_manager.clone()),
-        );
-        (tool_router, prompt_router) = register_tool(
-            tool_router,
-            prompt_router,
-            ReadClaudeAgentOutputTool::new(agent_manager.clone()),
-        );
-        (tool_router, prompt_router) = register_tool(
-            tool_router,
-            prompt_router,
-            ListClaudeAgentsTool::new(agent_manager.clone()),
+            ClaudeAgentTool::new(agent_registry.clone()),
         );
 
         Ok(RouterSet::new(tool_router, prompt_router, managers))
