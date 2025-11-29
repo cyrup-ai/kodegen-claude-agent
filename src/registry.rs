@@ -85,4 +85,35 @@ impl AgentRegistry {
     pub fn manager(&self) -> &Arc<AgentManager> {
         &self.manager
     }
+
+    /// Cleanup all agents for a connection (called on connection drop)
+    pub async fn cleanup_connection(&self, connection_id: &str) -> usize {
+        let mut agents = self.agents.lock().await;
+        let to_remove: Vec<(String, u32)> = agents
+            .keys()
+            .filter(|(conn_id, _)| conn_id == connection_id)
+            .cloned()
+            .collect();
+        
+        let count = to_remove.len();
+        for key in to_remove {
+            if let Some(session_id) = agents.remove(&key) {
+                log::debug!(
+                    "Cleaning up agent {} (session {}) for connection {}",
+                    key.1,
+                    session_id,
+                    connection_id
+                );
+                // Terminate the agent session
+                if let Err(e) = self.manager.terminate_session(&session_id).await {
+                    log::warn!(
+                        "Failed to terminate session {} during connection cleanup: {}",
+                        session_id,
+                        e
+                    );
+                }
+            }
+        }
+        count
+    }
 }

@@ -389,6 +389,23 @@ pub async fn start_server(
         crate::ClaudeAgentTool::new(agent_registry.clone()),
     );
 
+    // Create connection cleanup callback for agent registry
+    // This ensures all agent sessions are properly terminated when a connection drops
+    let registry_clone = agent_registry.clone();
+    let connection_cleanup: kodegen_server_http::ConnectionCleanupFn = Arc::new(
+        move |connection_id: String| {
+            let registry = registry_clone.clone();
+            Box::pin(async move {
+                let count = registry.cleanup_connection(&connection_id).await;
+                log::info!(
+                    "Connection {} dropped: cleaned up {} agent session(s)",
+                    connection_id,
+                    count
+                );
+            })
+        }
+    );
+
     let router_set = RouterSet::new(tool_router, prompt_router, managers);
 
     // Create session manager
@@ -411,6 +428,7 @@ pub async fn start_server(
         config,
         router_set.managers,
         session_manager,
+        Some(connection_cleanup),
     );
 
     // Start server with TLS
