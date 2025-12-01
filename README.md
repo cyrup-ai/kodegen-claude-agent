@@ -24,7 +24,7 @@ Build powerful multi-agent systems by spawning and orchestrating Claude agent su
 - 🪝 **Hook System** - Intercept and modify tool execution
 - 🛡️ **Permission Control** - Fine-grained control over tool access
 
-## Architecture
+## Architecture 
 
 This project provides both:
 1. **Rust SDK** - Direct programmatic access to Claude agent functionality
