@@ -439,3 +439,107 @@ pub async fn start_server(
     // Return handle for kodegend to control shutdown
     Ok(handle)
 }
+
+/// Start claude-agent HTTP server using pre-bound listener (TOCTOU-safe)
+///
+/// This variant is used by kodegend to eliminate TOCTOU race conditions
+/// during port cleanup. The listener is already bound to a port.
+///
+/// # Arguments
+/// * `listener` - Pre-bound TcpListener (port already reserved)
+/// * `tls_config` - Optional (cert_path, key_path) for HTTPS
+///
+/// # Returns
+/// ServerHandle for graceful shutdown, or error if startup fails
+pub async fn start_server_with_listener(
+    listener: tokio::net::TcpListener,
+    tls_config: Option<(std::path::PathBuf, std::path::PathBuf)>,
+) -> anyhow::Result<kodegen_server_http::ServerHandle> {
+    use kodegen_server_http::{Managers, RouterSet, register_tool};
+    use kodegen_config_manager::ConfigManager;
+    use rmcp::handler::server::router::{prompt::PromptRouter, tool::ToolRouter};
+
+    let _ = env_logger::try_init();
+
+    if rustls::crypto::ring::default_provider().install_default().is_err() {
+        log::debug!("rustls crypto provider already installed");
+    }
+
+    let config = ConfigManager::new();
+    config.init().await?;
+
+    let timestamp = chrono::Utc::now();
+    let pid = std::process::id();
+    let instance_id = format!("{}-{}", timestamp.format("%Y%m%d-%H%M%S-%9f"), pid);
+    let usage_tracker = kodegen_utils::usage_tracker::UsageTracker::new(
+        format!("claude-agent-{}", instance_id)
+    );
+
+    kodegen_mcp_tool::tool_history::init_global_history(instance_id.clone()).await;
+
+    let mut tool_router = ToolRouter::new();
+    let mut prompt_router = PromptRouter::new();
+    let managers = Managers::new();
+
+    // Initialize agent manager
+    let agent_manager = Arc::new(crate::AgentManager::new());
+    managers.register(AgentManagerWrapper(agent_manager.clone())).await;
+
+    // Initialize agent registry
+    let agent_registry = Arc::new(crate::AgentRegistry::new(agent_manager.clone()));
+
+    // Register unified Claude agent tool
+    (tool_router, prompt_router) = register_tool(
+        tool_router,
+        prompt_router,
+        crate::ClaudeAgentTool::new(agent_registry.clone()),
+    );
+
+    // Create connection cleanup callback for agent registry
+    let registry_clone = agent_registry.clone();
+    let connection_cleanup: kodegen_server_http::ConnectionCleanupFn = Arc::new(
+        move |connection_id: String| {
+            let registry = registry_clone.clone();
+            Box::pin(async move {
+                let count = registry.cleanup_connection(&connection_id).await;
+                log::info!(
+                    "Connection {} dropped: cleaned up {} agent session(s)",
+                    connection_id,
+                    count
+                );
+            })
+        }
+    );
+
+    let router_set = RouterSet::new(tool_router, prompt_router, managers);
+
+    // Create session manager
+    let session_config = rmcp::transport::streamable_http_server::session::local::SessionConfig {
+        channel_capacity: 16,
+        keep_alive: Some(std::time::Duration::from_secs(3600)),
+    };
+    let session_manager = Arc::new(
+        rmcp::transport::streamable_http_server::session::local::LocalSessionManager {
+            sessions: Default::default(),
+            session_config,
+        }
+    );
+
+    // Create HTTP server
+    let server = kodegen_server_http::HttpServer::new(
+        router_set.tool_router,
+        router_set.prompt_router,
+        usage_tracker,
+        config,
+        router_set.managers,
+        session_manager,
+        Some(connection_cleanup),
+    );
+
+    // Start server with pre-bound listener
+    let shutdown_timeout = std::time::Duration::from_secs(30);
+    let handle = server.serve_with_listener(listener, tls_config, shutdown_timeout).await?;
+
+    // Return handle for kodegend to control shutdown
+    Ok(handle)
+}
