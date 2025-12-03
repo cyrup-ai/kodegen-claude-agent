@@ -2,10 +2,12 @@
 
 use crate::manager::SpawnSessionRequest;
 use crate::registry::AgentRegistry;
-use kodegen_mcp_schema::claude_agent::{ClaudeAgentAction, ClaudeAgentArgs, ClaudeAgentPromptArgs, CLAUDE_AGENT};
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, error::McpError};
-use rmcp::model::{Content, PromptMessage, PromptMessageContent, PromptMessageRole};
-use serde_json::json;
+use kodegen_mcp_schema::claude_agent::{
+    ClaudeAgentAction, ClaudeAgentArgs, ClaudeAgentOutput, ClaudeAgentPromptArgs,
+    ClaudeAgentSummary, CLAUDE_AGENT,
+};
+use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
+use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
 use std::sync::Arc;
 
 /// Unified MCP tool for Claude agent lifecycle management
@@ -58,24 +60,60 @@ impl Tool for ClaudeAgentTool {
         true
     }
 
-    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<Vec<Content>, McpError> {
+    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
         let connection_id = ctx.connection_id().unwrap_or("default");
 
-        let result = match args.action {
+        let output = match args.action {
             ClaudeAgentAction::List => {
-                self.registry.list_all(connection_id).await
-                    .map_err(McpError::Other)?
+                let list_result = self.registry.list_all(connection_id).await
+                    .map_err(McpError::Other)?;
+                
+                // Parse the JSON result to extract agent summaries
+                let agents: Vec<ClaudeAgentSummary> = list_result
+                    .get("agents")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| {
+                                Some(ClaudeAgentSummary {
+                                    agent: v.get("agent")?.as_u64()? as u32,
+                                    session_id: v.get("session_id").and_then(|s| s.as_str()).map(|s| s.to_string()),
+                                    working: v.get("working").and_then(|w| w.as_bool()).unwrap_or(false),
+                                    completed: v.get("completed").and_then(|c| c.as_bool()).unwrap_or(false),
+                                })
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                
+                let count = agents.len();
+                ClaudeAgentOutput {
+                    agent: 0,
+                    action: "LIST".to_string(),
+                    session_id: None,
+                    output: format!("{} agent(s) active", count),
+                    message_count: None,
+                    working: None,
+                    completed: true,
+                    exit_code: Some(0),
+                    agents: Some(agents),
+                }
             }
             ClaudeAgentAction::Kill => {
                 if let Some(session_id) = self.registry.remove_session(connection_id, args.agent).await {
                     self.registry.manager().terminate_session(&session_id).await
                         .map_err(|e| McpError::Other(e.into()))?;
-                    json!({
-                        "agent": args.agent,
-                        "output": format!("Agent {} terminated", args.agent),
-                        "completed": true,
-                        "exit_code": 0,
-                    })
+                    ClaudeAgentOutput {
+                        agent: args.agent,
+                        action: "KILL".to_string(),
+                        session_id: None,
+                        output: format!("Agent {} terminated", args.agent),
+                        message_count: None,
+                        working: None,
+                        completed: true,
+                        exit_code: Some(0),
+                        agents: None,
+                    }
                 } else {
                     return Err(McpError::invalid_arguments(format!("Agent {} not found", args.agent)));
                 }
@@ -90,15 +128,21 @@ impl Tool for ClaudeAgentTool {
                 let output_response = self.registry.manager().get_output(&session_id, 0, 50).await
                     .map_err(|e| McpError::Other(e.into()))?;
                 
-                json!({
-                    "agent": args.agent,
-                    "session_id": session_id,
-                    "output": output_response.output,
-                    "message_count": info.message_count,
-                    "working": info.working,
-                    "completed": info.is_complete,
-                    "exit_code": if info.is_complete { Some(0) } else { None },
-                })
+                // Convert Vec<SerializedMessage> to formatted string
+                let output = serde_json::to_string_pretty(&output_response.output)
+                    .unwrap_or_else(|_| "[]".to_string());
+                
+                ClaudeAgentOutput {
+                    agent: args.agent,
+                    action: "READ".to_string(),
+                    session_id: Some(session_id),
+                    output,
+                    message_count: Some(info.message_count),
+                    working: Some(info.working),
+                    completed: info.is_complete,
+                    exit_code: if info.is_complete { Some(0) } else { None },
+                    agents: None,
+                }
             }
             ClaudeAgentAction::Spawn => {
                 let prompt = args.prompt.as_ref()
@@ -124,13 +168,17 @@ impl Tool for ClaudeAgentTool {
                 // Register in the registry
                 self.registry.register_session(connection_id, args.agent, session_id.clone()).await;
 
-                json!({
-                    "agent": args.agent,
-                    "session_id": session_id,
-                    "output": format!("[Agent {} spawned]\nUse action=READ to check progress.", args.agent),
-                    "completed": false,
-                    "exit_code": null,
-                })
+                ClaudeAgentOutput {
+                    agent: args.agent,
+                    action: "SPAWN".to_string(),
+                    session_id: Some(session_id),
+                    output: format!("[Agent {} spawned]\nUse action=READ to check progress.", args.agent),
+                    message_count: None,
+                    working: Some(true),
+                    completed: false,
+                    exit_code: None,
+                    agents: None,
+                }
             }
             ClaudeAgentAction::Send => {
                 let prompt = args.prompt.as_ref()
@@ -143,16 +191,28 @@ impl Tool for ClaudeAgentTool {
                 self.registry.manager().send_message(&session_id, prompt).await
                     .map_err(|e| McpError::Other(e.into()))?;
 
-                json!({
-                    "agent": args.agent,
-                    "output": format!("[Prompt sent to agent {}]\nUse action=READ to check progress.", args.agent),
-                    "completed": false,
-                    "exit_code": null,
-                })
+                ClaudeAgentOutput {
+                    agent: args.agent,
+                    action: "SEND".to_string(),
+                    session_id: Some(session_id),
+                    output: format!("[Prompt sent to agent {}]\nUse action=READ to check progress.", args.agent),
+                    message_count: None,
+                    working: Some(true),
+                    completed: false,
+                    exit_code: None,
+                    agents: None,
+                }
             }
         };
 
-        Ok(vec![Content::text(serde_json::to_string_pretty(&result)?)])
+        let summary = format!(
+            "\\x1b[35m󰚩 Claude Agent: {}\\x1b[0m\\n  Agent: {} · Status: {}",
+            output.action,
+            output.agent,
+            if output.completed { "completed" } else { "in progress" }
+        );
+
+        Ok(ToolResponse::new(summary, output))
     }
 
     fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
