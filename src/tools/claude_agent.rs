@@ -4,7 +4,7 @@ use crate::manager::SpawnSessionRequest;
 use crate::registry::AgentRegistry;
 use kodegen_mcp_schema::claude_agent::{
     ClaudeAgentAction, ClaudeAgentArgs, ClaudeAgentOutput, ClaudeAgentPromptArgs,
-    ClaudeAgentSummary, CLAUDE_AGENT,
+    CLAUDE_AGENT,
 };
 use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
 use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
@@ -65,28 +65,12 @@ impl Tool for ClaudeAgentTool {
 
         let output = match args.action {
             ClaudeAgentAction::List => {
-                let list_result = self.registry.list_all(connection_id).await
+                // Get typed agent summaries directly (no JSON parsing!)
+                let agents = self.registry.list_all(connection_id).await
                     .map_err(McpError::Other)?;
                 
-                // Parse the JSON result to extract agent summaries
-                let agents: Vec<ClaudeAgentSummary> = list_result
-                    .get("agents")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|v| {
-                                Some(ClaudeAgentSummary {
-                                    agent: v.get("agent")?.as_u64()? as u32,
-                                    session_id: v.get("session_id").and_then(|s| s.as_str()).map(|s| s.to_string()),
-                                    working: v.get("working").and_then(|w| w.as_bool()).unwrap_or(false),
-                                    completed: v.get("completed").and_then(|c| c.as_bool()).unwrap_or(false),
-                                })
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                
                 let count = agents.len();
+                
                 ClaudeAgentOutput {
                     agent: 0,
                     action: "LIST".to_string(),

@@ -1,12 +1,12 @@
 //! Agent session registry with connection isolation
 
 use anyhow::{anyhow, Result};
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::manager::AgentManager;
+use kodegen_mcp_schema::claude_agent::ClaudeAgentSummary;
 
 // Maps (connection_id, agent_id) to session UUID
 type AgentMap = HashMap<(String, u32), String>;
@@ -52,7 +52,7 @@ impl AgentRegistry {
     }
 
     /// List all agents for connection
-    pub async fn list_all(&self, connection_id: &str) -> Result<serde_json::Value> {
+    pub async fn list_all(&self, connection_id: &str) -> Result<Vec<ClaudeAgentSummary>> {
         let agents = self.agents.lock().await;
         let mut snapshots = Vec::new();
 
@@ -60,25 +60,20 @@ impl AgentRegistry {
             if conn_id == connection_id
                 && let Ok(info) = self.manager.get_session_info(session_id).await
             {
-                snapshots.push(json!({
-                    "agent": agent_id,
-                    "session_id": session_id,
-                    "message_count": info.message_count,
-                    "working": info.working,
-                    "completed": info.is_complete,
-                }));
+                snapshots.push(ClaudeAgentSummary {
+                    agent: *agent_id,
+                    session_id: Some(session_id.clone()),
+                    message_count: info.message_count,
+                    working: info.working,
+                    completed: info.is_complete,
+                });
             }
         }
 
-        snapshots.sort_by_key(|v| v["agent"].as_u64().unwrap_or(0));
+        // Sort by agent number
+        snapshots.sort_by_key(|s| s.agent);
 
-        Ok(json!({
-            "agent": null,
-            "output": serde_json::to_string_pretty(&snapshots)?,
-            "agents": snapshots,
-            "completed": true,
-            "exit_code": 0,
-        }))
+        Ok(snapshots)
     }
 
     /// Get reference to AgentManager

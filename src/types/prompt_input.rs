@@ -6,6 +6,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use kodegen_mcp_schema::prompt::TemplateParamValue;
+
 /// Input for agent prompts - can be plain string or template
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", content = "value")]
@@ -27,7 +29,7 @@ pub struct PromptTemplateInput {
 
     /// Parameters to pass to template rendering
     #[serde(default)]
-    pub parameters: HashMap<String, serde_json::Value>,
+    pub parameters: HashMap<String, TemplateParamValue>,
 }
 
 impl PromptInput {
