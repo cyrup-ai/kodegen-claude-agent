@@ -206,9 +206,9 @@ impl ClaudeError {
 }
 
 // Conversion to kodegen_tool McpError
-impl From<ClaudeError> for kodegen_mcp_tool::error::McpError {
+impl From<ClaudeError> for kodegen_mcp_schema::McpError {
     fn from(err: ClaudeError) -> Self {
-        use kodegen_mcp_tool::error::McpError;
+        use kodegen_mcp_schema::McpError;
 
         match err {
             ClaudeError::CliNotFound(msg) => McpError::ResourceNotFound(msg),

@@ -3,11 +3,10 @@
 use crate::manager::SpawnSessionRequest;
 use crate::registry::AgentRegistry;
 use kodegen_mcp_schema::claude_agent::{
-    ClaudeAgentAction, ClaudeAgentArgs, ClaudeAgentOutput, ClaudeAgentPromptArgs,
+    ClaudeAgentAction, ClaudeAgentArgs, ClaudeAgentOutput, ClaudeAgentPrompts,
     CLAUDE_AGENT,
 };
-use kodegen_mcp_tool::{Tool, ToolExecutionContext, ToolResponse, error::McpError};
-use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
+use kodegen_mcp_schema::{McpError, Tool, ToolExecutionContext, ToolResponse};
 use std::sync::Arc;
 
 /// Unified MCP tool for Claude agent lifecycle management
@@ -26,7 +25,7 @@ impl ClaudeAgentTool {
 
 impl Tool for ClaudeAgentTool {
     type Args = ClaudeAgentArgs;
-    type PromptArgs = ClaudeAgentPromptArgs;
+    type Prompts = ClaudeAgentPrompts;
 
     fn name() -> &'static str {
         CLAUDE_AGENT
@@ -60,7 +59,7 @@ impl Tool for ClaudeAgentTool {
         true
     }
 
-    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_tool::ToolArgs>::Output>, McpError> {
+    async fn execute(&self, args: Self::Args, ctx: ToolExecutionContext) -> Result<ToolResponse<<Self::Args as kodegen_mcp_schema::ToolArgs>::Output>, McpError> {
         let connection_id = ctx.connection_id().unwrap_or("default");
 
         let output = match args.action {
@@ -199,158 +198,4 @@ impl Tool for ClaudeAgentTool {
         Ok(ToolResponse::new(summary, output))
     }
 
-    fn prompt_arguments() -> Vec<rmcp::model::PromptArgument> {
-        vec![
-            rmcp::model::PromptArgument {
-                name: "focus_area".to_string(),
-                title: Some("Action Focus".to_string()),
-                description: Some(
-                    "Which agent action(s) to focus on: 'spawn', 'send', 'read', 'list', 'kill', or 'all' (default: 'all')".to_string()
-                ),
-                required: Some(false),
-            },
-            rmcp::model::PromptArgument {
-                name: "detail_level".to_string(),
-                title: Some("Detail Level".to_string()),
-                description: Some(
-                    "Depth of explanation: 'basic' for core usage, 'advanced' for edge cases (default: 'basic')".to_string()
-                ),
-                required: Some(false),
-            },
-        ]
-    }
-
-    async fn prompt(
-        &self,
-        args: Self::PromptArgs,
-    ) -> Result<Vec<PromptMessage>, McpError> {
-        let focus = args.focus_area.to_lowercase();
-        let detail = args.detail_level.to_lowercase();
-        let is_advanced = detail == "advanced";
-
-        let mut messages = vec![
-            PromptMessage {
-                role: PromptMessageRole::User,
-                content: PromptMessageContent::Text {
-                    text: if focus == "all" {
-                        format!(
-                            "How do I use the claude_agent tool with the elite registry pattern?{}",
-                            if is_advanced { " Include best practices and edge cases." } else { "" }
-                        )
-                    } else {
-                        format!(
-                            "How do I use the claude_agent '{}' action?{}",
-                            focus,
-                            if is_advanced { " Include best practices and edge cases." } else { "" }
-                        )
-                    },
-                },
-            },
-        ];
-
-        let mut assistant_response = String::new();
-
-        assistant_response.push_str(
-            "The claude_agent tool uses the elite registry pattern with connection isolation and numeric instance IDs:\n\n"
-        );
-
-        if focus == "all" || focus == "spawn" {
-            assistant_response.push_str(
-                "## SPAWN: Create Agent Session\n\
-                 Creates a new autonomous agent with an initial prompt.\n\n\
-                 Example:\n\
-                 ```json\n\
-                 {\"action\": \"SPAWN\", \"agent\": 0, \"prompt\": \"Analyze the codebase\", \"max_turns\": 10, \"await_completion_ms\": 300000}\n\
-                 ```\n\n\
-                 Parameters:\n\
-                 • agent: Instance number (0, 1, 2...) - automatically isolated per connection\n\
-                 • prompt: Initial task description\n\
-                 • await_completion_ms: Timeout in milliseconds (default: 300000, 0=fire-and-forget)\n\
-                 • max_turns: Conversation limit (default: 10)\n\
-                 • system_prompt: Custom behavior definition\n\
-                 • allowed_tools/disallowed_tools: Tool access control\n\n"
-            );
-        }
-
-        if focus == "all" || focus == "send" {
-            assistant_response.push_str(
-                "## SEND: Continue Agent Conversation\n\
-                 Sends additional prompt to existing agent session.\n\n\
-                 Example:\n\
-                 ```json\n\
-                 {\"action\": \"SEND\", \"agent\": 0, \"prompt\": \"Now fix the bugs\", \"await_completion_ms\": 60000}\n\
-                 ```\n\n\
-                 Parameters:\n\
-                 • agent: Instance number to send to\n\
-                 • prompt: Follow-up instruction\n\
-                 • await_completion_ms: Timeout (0=fire-and-forget)\n\n"
-            );
-        }
-
-        if focus == "all" || focus == "read" {
-            assistant_response.push_str(
-                "## READ: Check Agent Status\n\
-                 Reads current agent output and state.\n\n\
-                 Example:\n\
-                 ```json\n\
-                 {\"action\": \"READ\", \"agent\": 0}\n\
-                 ```\n\n\
-                 Returns:\n\
-                 • output: Current agent messages\n\
-                 • message_count: Number of messages\n\
-                 • working: Is agent currently active\n\
-                 • completed: Has session finished\n\n"
-            );
-        }
-
-        if focus == "all" || focus == "list" {
-            assistant_response.push_str(
-                "## LIST: Show All Agents\n\
-                 Lists all agent sessions for this connection.\n\n\
-                 Example:\n\
-                 ```json\n\
-                 {\"action\": \"LIST\"}\n\
-                 ```\n\n\
-                 Shows:\n\
-                 • agent: Instance number\n\
-                 • session_id: Internal UUID\n\
-                 • message_count: Total messages\n\
-                 • working: Current status\n\n"
-            );
-        }
-
-        if focus == "all" || focus == "kill" {
-            assistant_response.push_str(
-                "## KILL: Terminate Agent\n\
-                 Gracefully terminates an agent session.\n\n\
-                 Example:\n\
-                 ```json\n\
-                 {\"action\": \"KILL\", \"agent\": 0}\n\
-                 ```\n\n\
-                 Cleanup:\n\
-                 • Terminates subprocess\n\
-                 • Releases resources\n\
-                 • Removes from registry\n\n"
-            );
-        }
-
-        assistant_response.push_str(
-            "\n## Connection Isolation\n\
-             Each MCP connection gets independent agent numbering. agent:0 for connection A is \
-             completely separate from agent:0 for connection B.\n\n\
-             ## Timeout Behavior\n\
-             • await_completion_ms > 0: Wait up to N milliseconds, return current state on timeout, agent continues in background\n\
-             • await_completion_ms = 0: Fire-and-forget mode, agent runs in background\n\
-             • Use READ action to check progress of backgrounded agents\n"
-        );
-
-        messages.push(PromptMessage {
-            role: PromptMessageRole::Assistant,
-            content: PromptMessageContent::Text {
-                text: assistant_response,
-            },
-        });
-
-        Ok(messages)
-    }
 }
