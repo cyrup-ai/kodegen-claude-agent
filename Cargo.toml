@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_claude_agent"
-version = "0.10.1"
+version = "0.10.2"
 edition = "2024"
 description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
 authors = ["KODEGEN.ᴀɪ"]
@@ -77,7 +77,7 @@ rustls = "0.23"
 cyrup_termcolor = "2"
 
 # MCP SDK - official protocol implementation
-rmcp = { version = "0.10", features = ["client", "schemars", "server", "transport-sse-server"] }
+rmcp = { version = "0.11", features = ["client", "schemars", "server"] }
 
 # JSON Schema generation
 schemars = "1"
